@@ -1,5 +1,5 @@
-# CS5001 Practical P4 - Room Booking System
-*25 Nov 2022*
+# Room Booking System
+*15 Jun 2023*
 
 
 
