@@ -1,6 +1,7 @@
 # Room Booking System
 *15 Jun 2023*
 
+**_This mini-project is developed under jdk 17.0.3, and it has been confirmed that all the implemented functions can be run and tested in this environment._**
 
 
 
