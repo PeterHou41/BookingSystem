@@ -559,7 +559,8 @@ public class GUI extends JFrame implements PropertyChangeListener{
                 printCurrentPeople(false);
                 int chosenPerson = Integer.parseInt(
                         getInputString("Which person's booking details would you like to check?\n"
-                                + "Enter your option, '0' to interrupt the action\n")
+                                + "Enter your option, '0' to interrupt the action\n"
+                                + stringBuffer.toString())
                 );
                 clearBuffer();
 
@@ -934,13 +935,13 @@ public class GUI extends JFrame implements PropertyChangeListener{
             if (!isClashed) {
                 if (requestedStart.equals(requestedEnd)) {
                     stringBuffer.append("\nAvailable room retrieved at time <" +
-                            outputStart + ">: \nBuilding: " +
-                            buildingName + ", Room: " + roomName + "\n,");
+                            outputStart + ">: " + roomName
+                            + "\nBuilding: " + buildingName + "\n");
                 }
                 else {
                     stringBuffer.append("\nAvailable room retrieved at period <" +
-                            outputStart + ">-<" + outputEnd + ">: \nBuilding: " +
-                            buildingName + ", Room: " + roomName + "\n");
+                            outputStart + ">-<" + outputEnd + ">:" + roomName
+                            + "\nBuilding: " + buildingName + "\n");
                 }
             }
         }

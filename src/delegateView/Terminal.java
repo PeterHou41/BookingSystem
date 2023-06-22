@@ -621,7 +621,7 @@ public class Terminal {
         LocalDate underlyingDate = null;
 
         try{
-            pw.printf("\nEnter a date in this format: %s\n", datePattern);
+            pw.printf("Enter a date in this format: %s\n", datePattern);
             iDate = br.readLine();
         }
         catch (IOException ioe) {
@@ -852,12 +852,12 @@ public class Terminal {
             roomName = room.getName();
             if (!isClashed) {
                 if (requestedStart.equals(requestedEnd)) {
-                    pw.printf("%nAvailable room retrieved at time <%s>: %nBuilding: %s, Room: %s%n",
-                            outputStart, buildingName, roomName);
+                    pw.printf("%nAvailable room retrieved at time <%s>: %s%nBuilding: %s%n",
+                            outputStart, roomName, buildingName);
                 }
                 else {
-                    pw.printf("%nAvailable room retrieved at period <%s>-<%s>: %nBuilding: %s, Room: %s%n",
-                            outputStart, outputEnd, buildingName, roomName);
+                    pw.printf("%nAvailable room retrieved at period <%s>-<%s>: %s %nBuilding: %s%n",
+                            outputStart, outputEnd, roomName, buildingName);
                 }
             }
         }
@@ -939,6 +939,7 @@ public class Terminal {
         for (int counter = 0; counter < people.size(); counter++) {
             pw.printf("%n%d. %s", counter + 1, people.get(counter).getInfo());
         }
+        pw.println();
     }
     private void printCurrentBuildings() {
         List<Building> buildings = bookingSystem.getBuildings();
@@ -946,6 +947,7 @@ public class Terminal {
         for (int counter = 0; counter < buildings.size(); counter++) {
             pw.printf("%n%d. %s", counter + 1, buildings.get(counter).getInfo());
         }
+        pw.println();
     }
     private void printCurrentRooms() {
         List<Room> rooms = bookingSystem.getRooms();
@@ -953,6 +955,7 @@ public class Terminal {
         for (int counter = 0; counter < rooms.size(); counter++) {
             pw.printf("%n%d. %s", counter + 1, rooms.get(counter).getInfo());
         }
+        pw.println();
     }
     private void printCurrentBookings() {
         List<Booking> bookings = bookingSystem.getBookings();
@@ -960,6 +963,7 @@ public class Terminal {
         for (int counter = 0; counter < bookings.size(); counter++) {
             pw.printf("%n%d. %s", counter + 1, bookings.get(counter).getInfo());
         }
+        pw.println();
     }
 
 
