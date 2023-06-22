@@ -3,11 +3,13 @@ package src.model;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 
-import java.io.Serializable;
+import java.io.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.ArrayList;
+
+import static src.delegateView.SharedConstants.timePattern;
 
 /**
  * Represents a Booking System which stores information/states of
@@ -19,12 +21,10 @@ public class BookingSystem implements Serializable {
     private List<Room> rooms;
     private List<Person> people;
     private List<Booking> bookings;
-    /** The text to store */
-    private StringBuffer stringBuffer;
-    private PropertyChangeSupport notifier;
+    private transient PropertyChangeSupport notifier;
 
-    private boolean signalForRefreshingBefore;
-    private boolean signalForRefreshingAfter;
+    private transient boolean signalForRefreshingBefore;
+    private transient boolean signalForRefreshingAfter;
 
     /** Instantiate a Booking System. */
     public BookingSystem() {
@@ -32,10 +32,12 @@ public class BookingSystem implements Serializable {
         rooms = new ArrayList<>();
         people = new ArrayList<>();
         bookings = new ArrayList<>();
-        stringBuffer = new StringBuffer();
         notifier = new PropertyChangeSupport(this);
         signalForRefreshingBefore = false;
         signalForRefreshingAfter = true;
+
+//        br = new BufferedReader(new InputStreamReader(System.in));
+//        pw = new PrintWriter(System.out, true);
     }
     /**
      * Permit and observer to add themselves as an observer to the model's change.
@@ -96,12 +98,23 @@ public class BookingSystem implements Serializable {
         // Add the reference to the person and the room.
         Room room = rooms.get(roomOption - 1);
         Person person = people.get(personOption - 1);
+
+
+        // Trying to delete
         newBooking.setPerson(person);
         newBooking.setRoom(room);
         person.addBooking(newBooking);
         room.addBooking(newBooking);
+
+        // Attempt to re-construct
+        newBooking.setBooker_name(person.getName());
+        newBooking.setRoom_name(room.getName());
+        // Attempt to re-construct
+
+        // Trying to delete
         people.set(personOption - 1, person);
         rooms.set(roomOption - 1, room);
+
         bookings.add(newBooking);
 
     }
@@ -114,6 +127,14 @@ public class BookingSystem implements Serializable {
         Person person = people.get(personOption - 1);
 
         Booking booking;
+
+        // Use this block only after you de-compounding the relationship of other relevant models.
+        bookings.removeIf((booking1 ->
+                (booking1.getBooker_name().equals(person.getName())
+                )
+        ));
+
+
         for (int bookingIndex = bookings.size() - 1; bookingIndex >= 0; bookingIndex--) {
 
             booking = bookings.get(bookingIndex);
@@ -137,23 +158,16 @@ public class BookingSystem implements Serializable {
         Building building = buildings.get(buildingOption - 1);
 
         Room room;
-        Booking booking;
-        Person person;
+
+
+        rooms.removeIf(room1 -> room1.getBuilding_located().equals(building.getName()));
+
         for (int roomIndex = rooms.size() - 1; roomIndex >= 0; roomIndex--) {
 
             room = rooms.get(roomIndex);
             if (room.getBuilding().equals(building)) {
-                rooms.remove(room);
-                for (int bookingIndex = bookings.size() - 1; bookingIndex >= 0; bookingIndex--) {
-                    booking = bookings.get(bookingIndex);
-                    if (booking.getRoom().equals(room)) {
-                        for (int personIndex = people.size() - 1; personIndex >= 0; personIndex--) {
-                            person = people.get(personIndex);
-                            person.cancelBooking(booking); // Dereference the booking from person firstly.
-                        }
-                        bookings.remove(booking); // Safely remove the booking from bookings secondly.
-                    }
-                }
+                rooms.remove(room);//The fuck...
+                removeDependentBooking(room);
                 rooms.remove(room); // Then, remove the room from rooms safely.
             }
         }
@@ -179,9 +193,13 @@ public class BookingSystem implements Serializable {
             }
         }
 
+        removeDependentBooking(room);
+        rooms.remove(roomOption - 1);// Finally, remove the room from the system.
+    }
+
+    private void removeDependentBooking(Room room) {
         Booking booking;
         Person person;
-
         for (int bookingIndex = bookings.size() - 1; bookingIndex >= 0; bookingIndex--) {
             booking = bookings.get(bookingIndex);
             if (booking.getRoom().equals(room)) {
@@ -192,7 +210,6 @@ public class BookingSystem implements Serializable {
                 bookings.remove(booking); // Then, delete the booking records to this room safely.
             }
         }
-        rooms.remove(roomOption - 1);// Finally, remove the room from the system.
     }
 
 
@@ -236,6 +253,10 @@ public class BookingSystem implements Serializable {
         }
         bookings.remove(bookingOption - 1);
     }
+
+//    public void removeBooking(String ) {
+//
+//    }
 
 
     /**
@@ -304,6 +325,11 @@ public class BookingSystem implements Serializable {
         return valid;
     }
 
+    public boolean checkBookingInfoValidity(int PersonOption, int RoomOption) {
+        boolean valid = true;
+        return false;
+    }
+
 
     /**
      * Public getter to get all people in the system.
@@ -357,6 +383,97 @@ public class BookingSystem implements Serializable {
                 signalForRefreshingBefore, signalForRefreshingAfter);
     }
 
+    /**
+     * Check if the room to be booked has already been booked within the keyed in time period。
+     * @param room Room to be booked.
+     * @param underlyingDate Date of the reservation.
+     * @param underlyingStartAndEnd Start and End time of the reservation.
+     * @return Whether there is a conflict.
+     */
+    public boolean bookingConflictCheck(
+            Room room, LocalDate underlyingDate,LocalTime[] underlyingStartAndEnd) {
+
+        for (Booking booking : bookings) {
+            if (booking.getDate().equals(underlyingDate)) {
+
+                LocalTime underlyingStart = underlyingStartAndEnd[0];
+                LocalTime underlyingEnd = underlyingStartAndEnd[1];
+                // Check if interleaved with any existing booking.
+                boolean endAfterAnotherStart = underlyingEnd.isAfter(booking.getStartTime());
+                boolean startBeforeAnotherEnd = underlyingStart.isBefore(booking.getEndTime());
+
+
+                boolean sameRoom = room.equals(booking.getRoom());
+                if (sameRoom &&
+                        (endAfterAnotherStart && startBeforeAnotherEnd)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if the date entered is earlier than today, no restriction on entry invoked by viewing methods.
+     * @param inputDate Entry date.
+     * @param calledByView Whether invoked by viewing methods.
+     * @return Whether the entry date is earlier than today.
+     */
+    public boolean earlyDateCheck(LocalDate inputDate, boolean calledByView) {
+        // The behaviour of viewing past record is permitted.
+        if (calledByView){
+            return false;
+        }
+        LocalDate today = LocalDate.now();
+        return inputDate.isBefore(today);
+    }
+
+    /**
+     * Check if the time entered is earlier than now, no restriction on entry invoked by viewing methods.
+     * @param inputTime Entry time.
+     * @param calledByView Whether invoked by viewing methods.
+     * @return Whether the entry time is earlier than now.
+     */
+    public boolean earlyTimeCheck(LocalTime inputTime, boolean calledByView) {
+        // The behaviour of viewing past record is permitted.
+        if (calledByView){
+            return false;
+        }
+        LocalTime now = LocalTime.now();
+        return inputTime.isBefore(now);
+    }
+
+    /**
+     * Complement the difference in minutes if the difference between
+     * the end time and the start time is greater than one hour.
+     * @param difInHour Difference between end time and start time in hour.
+     * @param difInMin Difference between end time and start time in minutes.
+     * @return Difference between end time and start time in minutes with difference in hour added.
+     */
+    public int complementMin (int difInHour, int difInMin) {
+        if (difInHour != 0) {
+            difInMin += difInHour * 60;
+        }
+        return difInMin;
+    }
+
+    /**
+     * Check if the entry time block is appropriate.
+     * @param diffInMin Difference between end time and start time in minutes.
+     * @return Whether the difference is appropriate.
+     */
+    public boolean isAppropriateTime(int diffInMin) {
+        return diffInMin < 5;
+    }
+
+    /**
+     * Check if the entry time block is multiples of five.
+     * @param diffInMin Difference between end time and start time in minutes.
+     * @return Whether the difference is multiples of five.
+     */
+    public boolean isMultiplesOfFive(int diffInMin) {
+        return (diffInMin % 5 != 0);
+    }
 
 }
 

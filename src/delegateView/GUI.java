@@ -59,6 +59,7 @@ public class GUI extends JFrame implements PropertyChangeListener{
 
 
 
+
     private static final int FRAME_HEIGHT_AND_WIDTH = 600;
 
 
@@ -201,21 +202,17 @@ public class GUI extends JFrame implements PropertyChangeListener{
 
         addPersonItem.addActionListener(e -> {
             try {
-                printNewMsg("Please enter the name of the person: ");
-                String name = getInputString();
+                String name = getInputString("Please enter the name of the person");
 
-                printNewMsg("Please enter the email address of the person: ");
-                String email = getInputString();
+                String email = getInputString("Please enter the email address of the person");
                 boolean valid = bookingSystem.checkPersonInfoValidity(name, email);
                 if (valid) {
                     bookingSystem.addPerson(name, email);
-                    printNewMsg("Registration of <" + name +
-                            "> with a unique email address <" + email +
-                            "> is successful!");
+                    popValidationMsg("Registration of <" + name
+                            + "> with a unique email address <" + email + "> is successful!");
                 }
                 else {
-                    popMsgToMainFrame("Repetitive email or invalid name detected, registration failed",
-                            "Error", 0);
+                    popErrorMsg("Repetitive email or invalid name detected, registration failed");
                 }
             }
             catch (NullPointerException nullPointerException){
@@ -225,21 +222,17 @@ public class GUI extends JFrame implements PropertyChangeListener{
 
         addBuildingItem.addActionListener(e -> {
             try {
-                printNewMsg("Please enter the name of the building: ");
-                String name = getInputString();
-                printNewMsg("Please enter the address of the building: ");
-                String address = getInputString();
+                String name = getInputString("Please enter the name of the building");
+                String address = getInputString("Please enter the address of the building: ");
 
                 boolean valid = bookingSystem.checkBuildingInfoValidity(name, address);
                 if (valid) {
                     bookingSystem.addBuilding(name, address);
-                    printNewMsg("Registration of <" + name +
-                            "> with a physical location <" + address +
-                            "> is successful!\n");
+                    popValidationMsg("Registration of <"
+                            + name + "> with a physical location <" + address + "> is successful!");
                 }
                 else {
-                    popMsgToMainFrame("Invalid name or address detected, registration failed",
-                            "Error", 0);
+                    popErrorMsg("Invalid name or address detected, registration failed");
                 }
             }
             catch (NullPointerException nullPointerException){
@@ -249,30 +242,32 @@ public class GUI extends JFrame implements PropertyChangeListener{
 
         addRoomItem.addActionListener(e -> {
             try {
-                printNewMsg("Which building you would like this room located in?");
-                printCurrentBuildings(bookingSystem.getBuildings());
 
-                int chosenBuilding = Integer.parseInt(getInputString());
+                printCurrentBuildings(false);
 
-                printNewMsg("Please enter the name of the Room: ");
-                String name = getInputString();
+                int chosenBuilding = Integer.parseInt(getInputString(
+                        "Which building would you like this room to be located in?\n"
+                                + stringBuffer.toString()
+                ));
+                clearBuffer();
+
+
+                String name = getInputString("Please enter the name of the Room");
                 boolean valid = bookingSystem.checkRoomInfoValidity(name, chosenBuilding);
                 if (!valid) {
-                    popMsgToMainFrame("Empty name detected or repetitive name detected" +
-                                    " in the same building, room registration failed!",
-                            "Error", 0);
+                    popErrorMsg("Empty name detected or repetitive name detected" +
+                                    " in the same building, room registration failed!");
                     return;
                 }
                 bookingSystem.addRoom(name, chosenBuilding);
-                printNewMsg("Registration for <" + name + "> with the building chosen is successful!\n");
+                popValidationMsg("Registration for <" + name + "> with the building chosen is successful!");
 
             }
             catch (IndexOutOfBoundsException outOfBoundsException) {
-                popMsgToMainFrame("The option entered is out of the range of displayed options!",
-                        "Error", 0);
+                popErrorMsg("The option entered is out of the range of displayed options!");
             }
             catch (NumberFormatException nfe) {
-                popMsgToMainFrame("Not a valid integer option!", "Error", 0);
+                popErrorMsg("Not a valid integer option!");
             }
             catch (NullPointerException nullPointerException){
                 // Do nothing as user click the cancel.
@@ -282,34 +277,43 @@ public class GUI extends JFrame implements PropertyChangeListener{
          addBookingItem.addActionListener(e -> {
             try {
                 // Get Person and Room
-                printNewMsg("Which person is requesting a booking?");
-                printCurrentPeople(bookingSystem.getPeople());
-                printNewMsg("Enter your option, '0' to interrupt the action: ");
-                int chosenPerson = Integer.parseInt(getInputString());
+                printCurrentPeople(false);
+                int chosenPerson = Integer.parseInt(
+                        getInputString(
+                                "Who is requesting a reservation?\n"
+                                        + "Enter your option, '0' to interrupt the action\n"
+                                        + stringBuffer.toString())
+                );
+                clearBuffer();
+
                 if (chosenPerson == 0) {
-                    printNewMsg("Action interrupted!");
+                    popInterruptionMsg();
                     return;
                 }
 
-                printNewMsg("Which room would be booked?");
-                printCurrentRooms(bookingSystem.getRooms());
-                printNewMsg("Enter your option, '0' to interrupt the action: ");
-                int chosenRoom = Integer.parseInt(getInputString());
+                printCurrentRooms(false);
+                int chosenRoom = Integer.parseInt(
+                        getInputString("Which room would be booked?\n"
+                                + "Enter your option, '0' to interrupt the action\n"
+                                + stringBuffer.toString())
+                );
+                clearBuffer();
+
                 if (chosenRoom == 0) {
-                    printNewMsg("Action interrupted!");
+                    popInterruptionMsg();
                     return;
                 }
 
                 // Date and Time legality check.
-                printNewMsg("The entered date and time must be no earlier than now(when sending the request).");
-                printNewMsg("Please enter the date for the booking.");
-                LocalDate underlyingDate = dateFormatCheck();
+                LocalDate underlyingDate = getDateEntry(false);
                 if (underlyingDate == null) {
+                    popErrorMsg("Entered date is earlier than today!");
                     return;
                 }
-                boolean isToday = underlyingDate.equals(LocalDate.now());
-                printNewMsg("Please enter the start and the end time for the booking.");
-                LocalTime[] underlyingStartAndEnd = bookingTimeFormatCheck(isToday);
+
+
+                LocalTime[] underlyingStartAndEnd = bookingTimeFormatCheck(underlyingDate);
+
                 if (underlyingStartAndEnd == null) {
                     return;
                 }
@@ -318,26 +322,26 @@ public class GUI extends JFrame implements PropertyChangeListener{
 
 
                 //Booking conflict check.
-                if (bookingConflictCheck(underlyingRoom, underlyingDate, underlyingStartAndEnd)) {
+                if (bookingSystem.bookingConflictCheck(underlyingRoom, underlyingDate, underlyingStartAndEnd)) {
+                    popErrorMsg("Time entered or space chosen conflicted with existed booking unfortunately!");
                     return;
                 }
 
                 bookingSystem.addBooking(underlyingDate, underlyingStartAndEnd, chosenPerson, chosenRoom);
-                printNewMsg("Booking registered successfully!");
+                popValidationMsg("Booking registered successfully!");
 
             }
             catch (DateTimeParseException parseException) {
-                popMsgToMainFrame("Input Date or Time parsing failed!", "Error", 0);
+                popErrorMsg("Input Date or Time parsing failed!");
             }
             catch (IndexOutOfBoundsException outOfBoundsException) {
-                popMsgToMainFrame("The option entered is out of the range of displayed options!",
-                        "Error", 0);
+                popErrorMsg("The option entered is out of the range of displayed options!");
             }
             catch (NullPointerException nullPointerException){
                 // Do nothing as user click the cancel.
             }
             catch (NumberFormatException nfe) {
-                popMsgToMainFrame("Not a valid integer option!", "Error", 0);
+                popErrorMsg("Not a valid integer option!");
             }
 
         });
@@ -358,116 +362,130 @@ public class GUI extends JFrame implements PropertyChangeListener{
 
         removePersonItem.addActionListener(e -> {
             try {
-                printNewMsg("Which person would you like to remove from the system?");
-                printCurrentPeople(bookingSystem.getPeople());
-                printNewMsg("\n### WARNING ###\nOnce confirmed, all bookings made by" +
-                        "\nthis person would be removed,");
-                printNewMsg("Enter your option, '0' to interrupt the action: ");
-
-                int chosenPerson = Integer.parseInt(getInputString());
+                printCurrentPeople(false);
+                int chosenPerson = Integer.parseInt(
+                        getInputString("Which person would you like to remove from the system?"
+                                + "\n     WARNING    \n"
+                                + "Once confirmed, all bookings made by"
+                                +"this person would be removed.\n"
+                                + "Enter your option, '0' to interrupt the action\n"
+                                + stringBuffer.toString())
+                );
+                clearBuffer();
                 if (chosenPerson == 0) {
-                    printNewMsg("Action interrupted!");
+                    popInterruptionMsg();
                     return;
                 }
 
                 // Get the chosen person and delete its dependent instance/reference.
                 bookingSystem.removePerson(chosenPerson);
-                printNewMsg("Records and the corresponding references removed successfully!");
+                popValidationMsg("Records and the corresponding references removed successfully!");
 
             }
             catch (IndexOutOfBoundsException outOfBoundsException) {
-                popMsgToMainFrame("The option entered is out of the range of displayed options!",
-                        "Error", 0);
+                popErrorMsg("The option entered is out of the range of displayed options!");
             }
             catch (NullPointerException nullPointerException){
                 // Do nothing as user click the cancel.
             }
             catch (NumberFormatException nfe) {
-                popMsgToMainFrame("Not a valid integer option!", "Error", 0);
+                popErrorMsg("Not a valid integer option!");
             }
         });
         removeBuildingItem.addActionListener(e -> {
             try{
-                printNewMsg("Which building would you like to remove from the system?");
-                printCurrentBuildings(bookingSystem.getBuildings());
-                printNewMsg("\n### WARNING ###\nOnce confirmed, all rooms located in this building and all " +
-                        "\nsubsequent booking records and their reference for person would also be removed!");
-                printNewMsg("Enter your option, '0' to interrupt the action: ");
 
-                int chosenBuilding = Integer.parseInt(getInputString());
+                printCurrentBookings(false);
+                int chosenBuilding = Integer.parseInt(
+                        getInputString("Which building would you like to remove from the system?"
+                                +"\n     WARNING     \n"
+                                + "Once confirmed, all rooms located in this building and all"
+                                + "\nsubsequent booking records and their reference for person would also be removed!"
+                                + "Enter your option, '0' to interrupt the action\n"
+                                + stringBuffer.toString())
+                );
+                clearBuffer();
+
                 if (chosenBuilding == 0) {
-                    printNewMsg("Action interrupted!");
+                    popInterruptionMsg();
                     return;
                 }
                 bookingSystem.removeBuilding(chosenBuilding);
-                printNewMsg("Records and the corresponding references removed successfully!");
+                popValidationMsg("Records and the corresponding references removed successfully!");
 
             }
             catch (IndexOutOfBoundsException outOfBoundsException) {
-                popMsgToMainFrame("The option entered is out of the range of displayed options!",
-                        "Error", 0);
+                popErrorMsg("The option entered is out of the range of displayed options!");
             }
             catch (NullPointerException nullPointerException){
                 // Do nothing as user click the cancel.
             }
             catch (NumberFormatException nfe) {
-                popMsgToMainFrame("Not a valid integer option!", "Error", 0);
+                popErrorMsg("Not a valid integer option!");
             }
         });
         removeRoomItem.addActionListener(e -> {
             try {
-                printNewMsg("Which room would you like to remove from the system?");
-                printCurrentRooms(bookingSystem.getRooms());
-                printNewMsg("\n### WARNING ###\nOnce confirmed, all bookings made to this room and" +
-                        "\nreference for corresponding building and person would also be removed,");
-                printNewMsg("Enter your option, '0' to interrupt the action: ");
-                int chosenRoom = Integer.parseInt(getInputString());
+
+                printCurrentRooms(false);
+                int chosenRoom = Integer.parseInt(
+                        getInputString("Which room would you like to remove from the system?"
+                                + "\n     WARNING     \n"
+                                + "Once confirmed, all bookings made to this room and"
+                                + "\nreference for corresponding building and person would also be removed."
+                                + "Enter your option, '0' to interrupt the action\n"
+                                + stringBuffer.toString())
+                );
+                clearBuffer();
+
                 if (chosenRoom == 0) {
-                    printNewMsg("Action interrupted!");
+                    popInterruptionMsg();
                     return;
                 }
                 bookingSystem.removeRoom(chosenRoom);
-                printNewMsg("Records and the corresponding references removed successfully!");
+                popValidationMsg("Records and the corresponding references removed successfully!");
 
             }
             catch (IndexOutOfBoundsException outOfBoundsException) {
-                popMsgToMainFrame("The option entered is out of the range of displayed options!",
-                        "Error", 0);
+                popErrorMsg("The option entered is out of the range of displayed options!");
             }
             catch (NullPointerException nullPointerException){
                 // Do nothing as user click the cancel.
             }
             catch (NumberFormatException nfe) {
-                popMsgToMainFrame("Not a valid integer option!", "Error", 0);
+                popErrorMsg("Not a valid integer option!");
             }
         });
         removeBookingItem.addActionListener(e -> {
             try {
-                printNewMsg("Which booking would you like to remove from the system?");
-                printCurrentBookings(bookingSystem.getBookings());
-                printNewMsg("\n### WARNING ###\nOnce confirmed, the person who made the booking and\n" +
-                        "the room this booking reserved would lose this reference,\n" +
-                        "and the records of this booking would be deleted from the system.");
-                printNewMsg("Enter your option, '0' to interrupt the action: ");
-                int chosenBooking = Integer.parseInt(getInputString());
+
+                printCurrentBookings(false);
+                int chosenBooking = Integer.parseInt(
+                        getInputString("Which booking would you like to remove from the system?"
+                                + "\n     WARNING     \n"
+                                + "Once confirmed, the person who made the booking and\n"
+                                + "the room this booking reserved would lose this reference,\n"
+                                + "and the records of this booking would be deleted from the system."
+                                + "Enter your option, '0' to interrupt the action\n"
+                                + stringBuffer.toString())
+                );
                 if (chosenBooking == 0) {
-                    printNewMsg("Action interrupted!");
+                    popInterruptionMsg();
                     return;
                 }
 
                 bookingSystem.removeBooking(chosenBooking);
-                printNewMsg("Records and the corresponding references removed successfully!");
+                popValidationMsg("Records and the corresponding references removed successfully!");
 
             }
             catch (IndexOutOfBoundsException outOfBoundsException) {
-                popMsgToMainFrame("The option entered is out of the range of displayed options!",
-                        "Error", 0);
+                popErrorMsg("The option entered is out of the range of displayed options!");
             }
             catch (NullPointerException nullPointerException){
                 // Do nothing as user click the cancel.
             }
             catch (NumberFormatException nfe) {
-                popMsgToMainFrame("Not a valid integer option!", "Error", 0);
+                popErrorMsg("Not a valid integer option!");
             }
         });
 
@@ -490,36 +508,34 @@ public class GUI extends JFrame implements PropertyChangeListener{
 
         allRoomAtATime.addActionListener(e -> {
             try{
-                LocalDate underlyingDate = dateFormatCheck();
+                LocalDate underlyingDate = getDateEntry(true);
                 if (underlyingDate == null) {
                     return;
                 }
-                boolean isToday = underlyingDate.equals(LocalDate.now());
-                LocalTime underlyingTimePoint = timePointCheck(isToday);
+
+                LocalTime underlyingTimePoint = searchTimePointCheck();
                 if (underlyingTimePoint == null) {
                     return;
                 }
+                popValidationMsg("The time entered is expected");
                 timeClashCheck(underlyingDate, underlyingTimePoint, underlyingTimePoint);
-                printNewMsg("\nEnd of this time point retrieving.\n");
 
             }
             catch (DateTimeParseException parseException) {
-                popMsgToMainFrame("Input Date or Time parsing failed!", "Error", 0);
+                popErrorMsg("Input Date or Time parsing failed!");
             }
             catch (NullPointerException nullPointerException){
                 // Do nothing as user click the cancel.
             }
-
         });
 
         allRoomAtATimeBlock.addActionListener(e -> {
             try{
-                LocalDate underlyingDate = dateFormatCheck();
+                LocalDate underlyingDate = getDateEntry(true);
                 if (underlyingDate == null) {
                     return;
                 }
-                boolean isToday = underlyingDate.equals(LocalDate.now());
-                LocalTime[] underlyingBlock = timeBlockCheck(isToday);
+                LocalTime[] underlyingBlock = searchTimeBlockCheck(underlyingDate);
                 if (underlyingBlock == null) {
                     return;
                 }
@@ -527,10 +543,9 @@ public class GUI extends JFrame implements PropertyChangeListener{
                 LocalTime validEndTime = underlyingBlock[1];
 
                 timeClashCheck(underlyingDate, validStartTime, validEndTime);
-                printNewMsg("\nEnd of this time block retrieving.\n");
             }
             catch (DateTimeParseException parseException) {
-                popMsgToMainFrame("Input Date or Time parsing failed!", "Error", 0);
+                popErrorMsg("Input Date or Time parsing failed!");
             }
             catch (NullPointerException nullPointerException){
                 // Do nothing as user click the cancel.
@@ -540,12 +555,16 @@ public class GUI extends JFrame implements PropertyChangeListener{
 
         allBookingByAPerson.addActionListener(e -> {
             try{
-                printNewMsg("Which person's booking details would you like to check?");
-                printCurrentPeople(bookingSystem.getPeople());
-                printNewMsg("Enter your option, '0' to interrupt the action: ");
-                int chosenPerson = Integer.parseInt(getInputString());
+
+                printCurrentPeople(false);
+                int chosenPerson = Integer.parseInt(
+                        getInputString("Which person's booking details would you like to check?\n"
+                                + "Enter your option, '0' to interrupt the action\n")
+                );
+                clearBuffer();
+
                 if (chosenPerson == 0) {
-                    popMsgToMainFrame("Action interrupted!", "Halt", 2);
+                    popInterruptionMsg();
                     return;
                 }
 
@@ -554,34 +573,41 @@ public class GUI extends JFrame implements PropertyChangeListener{
                 Person person = people.get(chosenPerson - 1);
                 for (Booking booking : bookings) {
                     if (person.equals(booking.getPerson())) {
-                        printNewMsg(booking.getInfo());
+                        stringBuffer.append(booking.getInfo());
+
                     }
                 }
-                printNewMsg("\nEnd of the retrieving request for booking.\n");
+                stringBuffer.append("\nEnd of the retrieving request for booking.\n");
+                printBuffer("List", -1);
+
             }
             catch (DateTimeParseException parseException) {
-                popMsgToMainFrame("Input Date or Time parsing failed!", "Error", 0);
+                popErrorMsg("Input Date or Time parsing failed!");
             }
             catch (IndexOutOfBoundsException outOfBoundsException) {
-                popMsgToMainFrame("The option entered is out of the range of displayed options!",
-                        "Error", 0);
+                popErrorMsg("The option entered is out of the range of displayed options!");
             }
             catch (NullPointerException nullPointerException){
                 // Do nothing as user click the cancel.
             }
             catch (NumberFormatException nfe) {
-                popMsgToMainFrame("Not a valid integer option!", "Error", 0);
+                popErrorMsg("Not a valid integer option!");
             }
         });
 
         allScheduleForARoom.addActionListener(e -> {
             try{
-                printNewMsg("Which room's schedule would you like to check?");
-                printCurrentRooms(bookingSystem.getRooms());
-                printNewMsg("Enter your option, '0' to interrupt the action: ");
-                int chosenRoom = Integer.parseInt(getInputString());
+
+                printCurrentRooms(false);
+                int chosenRoom = Integer.parseInt(
+                        getInputString("Which room's schedule would you like to check?\n"
+                                + "Enter your option, '0' to interrupt the action\n"
+                                + stringBuffer.toString())
+                );
+                clearBuffer();
+
                 if (chosenRoom == 0) {
-                    printNewMsg("Action interrupted!");
+                    popInterruptionMsg();
                     return;
                 }
 
@@ -589,62 +615,62 @@ public class GUI extends JFrame implements PropertyChangeListener{
                 List<Booking> bookings = bookingSystem.getBookings();
                 Room room = rooms.get(chosenRoom - 1);
 
-                printNewMsg("Here is the date today: " + LocalDate.now());
-                printNewMsg("And the time for now: " + LocalTime.now());
-                printNewMsg("The reservation information printed below (if any) " +
-                        "indicates that the room is occupied at the time.\n" +
-                        "Apart from that, from now on, the room is free .\n");
+                popPromptMsg("Here is the date today: " + LocalDate.now() + "\n"
+                        +"And the time for now: " + LocalTime.now() + "\n"
+                        +"The reservation information printed below (if any) "
+                        +"indicates that the room is occupied at the time.\n"
+                        +"Apart from that, from now on, the room is free .\n");
                 for (Booking booking: bookings) {
                     if (room.equals(booking.getRoom())) {
-                        printNewMsg(booking.getInfo());
+                        stringBuffer.append(booking.getInfo());
                     }
                 }
+                stringBuffer.append("\nEnd of the List.");
+                printBuffer("Retrieval", -1);
+
 
             }
             catch (IndexOutOfBoundsException outOfBoundsException) {
-                popMsgToMainFrame("The option entered is out of the range of displayed options!",
-                        "Error", 0);
+                popErrorMsg("The option entered is out of the range of displayed options!");
             }
             catch (NullPointerException nullPointerException){
                 // Do nothing as user click the cancel.
             }
             catch (NumberFormatException nfe) {
-                popMsgToMainFrame("Not a valid integer option!", "Error", 0);
+                popErrorMsg("Not a valid integer option!");
             }
         });
 
         allModels.addActionListener(e -> {
             try{
-                printNewMsg(graphicalarmMenu);
-                String keyboard = getInputString();
+//                printNewMsg(graphicalarmMenu);
+                String keyboard = getInputString(graphicalarmMenu);
                 int exceptedOption = Integer.parseInt(keyboard);
                 switch (exceptedOption) {
                     case 1:
-                        printCurrentPeople(bookingSystem.getPeople());
+                        printCurrentPeople(true);
                         break;
                     case 2:
-                        printCurrentBuildings(bookingSystem.getBuildings());
+                        printCurrentBuildings(true);
                         break;
                     case 3:
-                        printCurrentRooms(bookingSystem.getRooms());
+                        printCurrentRooms(true);
                         break;
                     case 4:
-                        printCurrentBookings(bookingSystem.getBookings());
+                        printCurrentBookings(true);
                         break;
                     default:
-                        popMsgToMainFrame("The option entered is out of the range of displayed options!",
-                                "Error", 0);
+                        popErrorMsg("The option entered is out of the range of displayed options!");
                 }
             }
             catch (IndexOutOfBoundsException outOfBoundsException) {
-                popMsgToMainFrame("The option entered is out of the range of displayed options!",
-                        "Error", 0);
+                popErrorMsg("The option entered is out of the range of displayed options!");
             }
             catch (NullPointerException nullPointerException){
                 // Do nothing as user click the cancel.
             }
             catch (NumberFormatException nfe) {
-                popMsgToMainFrame("Not a valid integer option!", "Error", 0);
+                popErrorMsg("Not a valid integer option!");
             }
         });
 
@@ -705,47 +731,101 @@ public class GUI extends JFrame implements PropertyChangeListener{
         });
     }
 
+    private void popValidationMsg(String prompt) {
+        popMsgToMainFrame(prompt, "Confirmation", -1);
+    }
 
+    private void popPromptMsg(String prompt) {
+        popMsgToMainFrame(prompt, "Notice", -1);
+    }
 
-    private LocalDate dateFormatCheck() {
-        LocalDate today = LocalDate.now();
-        printNewMsg("\nEnter a date in this format: " + datePattern + "\n");
-        String iDate = getInputString();
+    private void popErrorMsg(String msg) {
+        popMsgToMainFrame(msg, "Error", 0);
+    }
+
+    private void popInterruptionMsg() {
+        popMsgToMainFrame("Action interrupted!", "Halt", 2);
+    }
+
+    private void printBuffer(String title, int msgType) {
+        popMsgToMainFrame(stringBuffer.toString(), title, msgType);
+        stringBuffer.delete(0, stringBuffer.length());
+    }
+
+    private void clearBuffer() {
+        stringBuffer.delete(0, stringBuffer.length());
+    }
+
+    // Check whether the entered date is earlier than today for new booking case
+    private LocalDate dateCheck(String iDate, boolean calledByView) {
         LocalDate inputDate = LocalDate.parse(iDate);
-        if (inputDate.isBefore(today)) {
-            popMsgToMainFrame("Entered date is earlier than today!", "Error", 0);
+        if (bookingSystem.earlyDateCheck(inputDate, calledByView)) {
             return null;
         }
-        printNewMsg("Entered date validated!");
+        popValidationMsg("Entered date validated!");
         return inputDate;
     }
 
-    private LocalTime[] getTimeBlock(boolean today) {
-        printNewMsg("Enter the start time in this format: " + timePattern + "\n");
-        LocalTime rn = LocalTime.now();
-        String iSTime = getInputString();
-        LocalTime inputStartTime = LocalTime.parse(iSTime);
+    private LocalDate getDateEntry(boolean calledByView) {
+        LocalDate underlyingDate = null;
+        popMsgToMainFrame("Please follow the instructions to enter the date and time.\n"
+                        + "The entered DATE and TIME must be no earlier than now(when sending the request).",
+                "Prompt", 2);
+        String iDate = getInputString("Enter a date in this format: " + datePattern);
 
-        if (today && inputStartTime.isBefore(rn)) {
-            printNewMsg("Entered time is earlier than now!");
-            return null;
+        // Handle the case of empty entry.
+        try{
+            underlyingDate = dateCheck(iDate, calledByView);
         }
-
-        printNewMsg("And enter the end time in the same format:");
-        String iETime = getInputString();
-        LocalTime inputEndTime = LocalTime.parse(iETime);
-
-
-        // Legality not checked.
-        LocalTime[] validStartEnd = {inputStartTime, inputEndTime};
-        return validStartEnd;
+        catch (DateTimeParseException dtpException) {
+            popErrorMsg("Input Date or Time parsing failed!");
+        }
+        return underlyingDate;
     }
 
-    private LocalTime[] bookingTimeFormatCheck(boolean today) {
-        LocalTime[] originalSE = getTimeBlock(today);
-        LocalTime inputStartTime = originalSE[0];
-        LocalTime inputEndTime = originalSE[1];
 
+    private LocalTime[] getTimeBlock(LocalDate dateEntry, boolean calledByView) {
+        LocalTime[] validStartAndEnd = null;
+        try {
+
+            String iSTime = getInputString("Enter the start time in this format: " + timePattern);
+            LocalTime inputStartTime = LocalTime.parse(iSTime);
+            boolean today = bookingSystem.earlyDateCheck(dateEntry, calledByView);
+            boolean earlyTime = bookingSystem.earlyTimeCheck(inputStartTime, calledByView);
+
+            // Check whether the time block called by the addBooking methods
+            // is later than the point when the request is made.
+            if (today && earlyTime && !calledByView) {
+                return null;
+            }
+
+            String iETime = getInputString("And enter the end time in the same format: " + timePattern);
+            LocalTime inputEndTime = LocalTime.parse(iETime);
+
+            // Legality not checked.
+            validStartAndEnd = new LocalTime[]{inputStartTime, inputEndTime};
+        }
+        // Handle the case of empty entry.
+        catch (DateTimeParseException dtpException) {
+            popErrorMsg("Input Date or Time parsing failed!");
+        }
+
+        return validStartAndEnd;
+    }
+
+
+    private LocalTime[] bookingTimeFormatCheck(LocalDate underlyingDate) {
+
+        LocalTime[] originalSE = getTimeBlock(underlyingDate, false);
+        LocalTime inputStartTime = null;
+        LocalTime inputEndTime = null;
+        try {
+            inputStartTime = originalSE[0];
+            inputEndTime = originalSE[1];
+        }
+        catch (NullPointerException npe) {
+            popErrorMsg("Entered time is earlier than now!");
+        }
 
         int differenceInHour = inputEndTime.getHour() - inputStartTime.getHour();
         int differenceInMin = inputEndTime.getMinute() - inputStartTime.getMinute();
@@ -755,64 +835,32 @@ public class GUI extends JFrame implements PropertyChangeListener{
         }
 
         if (differenceInMin < 5) {
-            popMsgToMainFrame("Booking span is less than 5 min!", "Error", 0);
+            popErrorMsg("Booking span is less than 5 min!");
             return null;
         }
 
         if (differenceInMin % 5 != 0) {
-            popMsgToMainFrame("Booking span not integral of five minutes!", "Error", 0);
+            popErrorMsg("Booking span not integral of five minutes!");
             return null;
         }
         // Legality checked.
-        printNewMsg("Validated entered start and end time!");
+        popValidationMsg("The entered start and end time conforms to the format!");
         return new LocalTime[]{inputStartTime, inputEndTime};
     }
 
 
-
-    private boolean bookingConflictCheck(
-            Room room, LocalDate underlyingDate,LocalTime[] underlyingStartAndEnd) {
-
-        printNewMsg("Check whether the booking conflicted with another existed booking...");
-        List<Booking> bookings = bookingSystem.getBookings();
-        for (Booking booking : bookings) {
-            if (booking.getDate().equals(underlyingDate)) {
-                // Check if the underlying booking's endTime/startTime is:
-                LocalTime underlyingStart = underlyingStartAndEnd[0];
-                LocalTime underlyingEnd = underlyingStartAndEnd[1];
-                // Check if interleaved
-                boolean endAfterAnotherStart = underlyingEnd.isAfter(booking.getStartTime());
-                boolean startBeforeAnotherEnd = underlyingStart.isBefore(booking.getEndTime());
-                
-                boolean sameRoom = room.equals(booking.getRoom());
-                if (sameRoom &&
-                        (endAfterAnotherStart && startBeforeAnotherEnd)) {
-                    popMsgToMainFrame("Time entered or space chosen conflicted with existed booking unfortunately!", "Error", 0);
-                    return true;
-                }
-            }
-        }
-        printNewMsg("No conflicts in time and space with existed bookings!");
-        return false;
-    }
-
-    private LocalTime timePointCheck(boolean today) {
-        printNewMsg("The time entered is expected ");
-        printNewMsg("Enter the time point in this format: " +
-                timePattern + "\n");
-        LocalTime rn = LocalTime.now();
-        String iTime = getInputString();
+    private LocalTime searchTimePointCheck() {
+        String iTime = getInputString("Enter the time point in this format: "
+                + timePattern);
         LocalTime inputTime = LocalTime.parse(iTime);
 
-        if (today && inputTime.isBefore(rn)) {
-            popMsgToMainFrame("Entered time is earlier than now!", "Error", 0);
-            return null;
-        }
         return inputTime;
     }
 
-    private LocalTime[] timeBlockCheck(boolean today) {
-        LocalTime[] originalSE = getTimeBlock(today);
+    private LocalTime[] searchTimeBlockCheck(LocalDate entryDate) {
+        LocalTime[] originalSE = getTimeBlock(entryDate, true);
+        // Deeper level of exception would have been caught in the method getTimeBlock.
+        assert originalSE != null;
         LocalTime inputStartTime = originalSE[0];
         LocalTime inputEndTime = originalSE[1];
 
@@ -823,11 +871,11 @@ public class GUI extends JFrame implements PropertyChangeListener{
             differenceInMin += differenceInHour * 60;
         }
         if (differenceInMin <= 0) {
-            popMsgToMainFrame("Invalid time block!", "Error", 0);
+            popErrorMsg("Invalid time block!");
             return null;
         }
 
-        popMsgToMainFrame("Validated entered start and end time!", "Error", 0);
+        popMsgToMainFrame("Entered start and end time pass the validation!", "Message", 1);
         return new LocalTime[]{inputStartTime, inputEndTime};
     }
 
@@ -837,50 +885,83 @@ public class GUI extends JFrame implements PropertyChangeListener{
         List<Room> rooms = bookingSystem.getRooms();
         List<Booking> bookings = bookingSystem.getBookings();
         Room room;
+        LocalTime outputStart, outputEnd;
+        boolean isClashed;
 
         outer:
         for (int roomIndex = rooms.size() - 1; roomIndex >= 0; roomIndex--) {
             room = rooms.get(roomIndex);
+            isClashed = false;
+            outputStart = requestedStart;
+            outputEnd = requestedEnd;
 
             for (Booking booking: bookings) {
                 if (booking.getRoom().equals(room)) {
                     boolean sameDate = booking.getDate().equals(underlyingDate);
-                    boolean endAfterStart = requestedEnd.isAfter(booking.getStartTime());
-                    boolean startBeforeEnd  = requestedStart.isBefore(booking.getEndTime());
-                    if (sameDate && (endAfterStart || startBeforeEnd)) {
-                        continue outer;
+                    boolean reqEndAfterEqStart
+                            = (requestedEnd.isAfter(booking.getStartTime())
+                            ||requestedEnd.equals(booking.getStartTime()));
+
+                    boolean reqStartBeforeEqEnd
+                            = (requestedStart.isBefore(booking.getEndTime())
+                            || requestedStart.equals(booking.getEndTime()));
+
+                    boolean reqStartAfterEqStart
+                            = (requestedStart.isAfter(booking.getStartTime())
+                            || requestedStart.equals(booking.getStartTime()));
+
+                    boolean reqEndBeforeEqEnd
+                            = (requestedEnd.isBefore(booking.getEndTime())
+                            || requestedEnd.equals(booking.getEndTime()));
+
+                    // Given the constraint on the outer scope, only
+                    // those valid start-end pair(start before end) would be considered
+                    if (sameDate) {
+                        if (reqStartAfterEqStart && reqEndBeforeEqEnd) {
+                            isClashed = true;
+                        }
+                        else if (reqEndAfterEqStart && reqEndBeforeEqEnd) {
+                            outputEnd = booking.getStartTime();
+                        }
+                        else if (reqStartAfterEqStart && reqStartBeforeEqEnd) {
+                            outputStart = booking.getEndTime();
+                        }
                     }
                 }
             }
             buildingName = room.getBuilding().getName();
             roomName = room.getName();
-            if (requestedStart.equals(requestedEnd)) {
-                printNewMsg("\nAvailable room retrieved at time <" +
-                                requestedStart + ">: \nBuilding: " + 
-                        buildingName + ", Room: " + roomName + "\n,");
-            }
-            else {
-                printNewMsg("\nAvailable room retrieved at period <" +
-                        requestedStart + ">-<" + requestedEnd + ">: \nBuilding: " +
-                        buildingName + ", Room: " + roomName + "\n");
+            if (!isClashed) {
+                if (requestedStart.equals(requestedEnd)) {
+                    stringBuffer.append("\nAvailable room retrieved at time <" +
+                            outputStart + ">: \nBuilding: " +
+                            buildingName + ", Room: " + roomName + "\n,");
+                }
+                else {
+                    stringBuffer.append("\nAvailable room retrieved at period <" +
+                            outputStart + ">-<" + outputEnd + ">: \nBuilding: " +
+                            buildingName + ", Room: " + roomName + "\n");
+                }
             }
         }
+        stringBuffer.append("\nEnd of the List.");
+        printBuffer("Retrieval", -1);
     }
-    
+
 
     private void printNewMsg(String stringToPrint) {
         stringBuffer.append(stringToPrint);
         bookingSystem.notifyRefreshing();
-        stringBuffer.append("\n########## Dividing Line ##########\n");
+//        stringBuffer.append("\n####################\n");
+        clearBuffer();
     }
 
-    private String getInputString() {
-        String prompt = "Please follow the instructions on the screen to enter appropriate commands :";
-        String query = "Query";
-        String userInput = JOptionPane.showInputDialog(mainFrame, prompt, query, 3);
+    private String getInputString(String prompt) {
+
+        String userInput = JOptionPane.showInputDialog(mainFrame, prompt, "Query", 3);
         if (userInput == null) {
             // 'Cancel' button clicked by the user.
-            popMsgToMainFrame("Action interrupted!", "Halt", 2);
+            popInterruptionMsg();
             throw new NullPointerException(); // Print nothing.
         }
         printNewMsg(userInput);
@@ -891,43 +972,75 @@ public class GUI extends JFrame implements PropertyChangeListener{
         JOptionPane.showMessageDialog(mainFrame, msg, title, msgType);
     }
 
-    private void printCurrentPeople(List<Person> people) {
+    /**
+     * Append all registered people's information into the stringBuffer,
+     * and print it if the method is called by viewing functions.
+     * @param calledByView Whether invoked by the viewing function.
+     */
+    private void printCurrentPeople(boolean calledByView) {
         String name;
         String email;
-        printNewMsg("\nPrinting all current person's info...\n");
+        List<Person> people = bookingSystem.getPeople();
         for (int counter = 0; counter < people.size(); counter++) {
             name = people.get(counter).getName();
             email = people.get(counter).getEmail();
-            printNewMsg(Integer.toString(counter + 1) + ". " +
-                    name + " <" + email + ">");
+            stringBuffer.append(Integer.toString(counter + 1) + ". " +
+                    people.get(counter).getInfo() + "\n");
+        }
+        if (calledByView) {
+            printBuffer("Person List", -1);
         }
     }
-    private void printCurrentBuildings(List<Building> buildings) {
-        printNewMsg("\nPrinting all current building's info...\n");
 
+    /**
+     * Append all registered buildings' information to the stringBuffer,
+     * and print it if the method is called by viewing functions.
+     * @param calledByView Whether invoked by the viewing function.
+     */
+    private void printCurrentBuildings(boolean calledByView) {
+
+        List<Building> buildings = bookingSystem.getBuildings();
         for (int counter = 0; counter < buildings.size(); counter++) {
-            printNewMsg(Integer.toString(counter + 1) + ". " +
-                    buildings.get(counter).getName());
+            stringBuffer.append(Integer.toString(counter + 1) + ". " +
+                    buildings.get(counter).getInfo() + "\n");
+        }
+        if (calledByView) {
+            printBuffer("Building List", -1);
         }
     }
-    private void printCurrentRooms(List<Room> rooms) {
-        String buildingName;
-        String RoomName;
-        printNewMsg("\nPrinting all current room's info...\n");
-        for (int counter = 0; counter < rooms.size(); counter++) {
-            buildingName = rooms.get(counter).getBuilding().getName();
-            RoomName = rooms.get(counter).getName();
 
-            printNewMsg(Integer.toString(counter + 1) + ". Room: " +
-                    RoomName + "\n   Building: " + buildingName + "");
+    /**
+     * Append all registered rooms' information to the stringBuffer,
+     * and print it if the method is called by viewing functions.
+     * @param calledByView Whether invoked by the viewing function.
+     */
+    private void printCurrentRooms(boolean calledByView) {
+
+        List<Room> rooms = bookingSystem.getRooms();
+        for (int counter = 0; counter < rooms.size(); counter++) {
+
+            stringBuffer.append(Integer.toString(counter + 1) + ". " +
+                    rooms.get(counter).getInfo() + "\n");
+        }
+        if (calledByView) {
+            printBuffer("Room List", -1);
         }
     }
-    private void printCurrentBookings(List<Booking> bookings) {
-        printNewMsg("\nPrinting all current booking's info...\n");
+
+    /**
+     * Append all registered bookings' information to the stringBuffer,
+     * and print it if the method is called by viewing functions.
+     * @param calledByView Whether invoked by the viewing function.
+     */
+    private void printCurrentBookings(boolean calledByView) {
+        List<Booking> bookings = bookingSystem.getBookings();
         for (int counter = 0; counter < bookings.size(); counter++) {
 
-            printNewMsg(Integer.toString(counter + 1) + ". " +
-                    bookings.get(counter).getInfo());
+            stringBuffer.append(Integer.toString(counter + 1) + ". " +
+                    bookings.get(counter).getInfo() + "\n");
+        }
+        if (calledByView) {
+            printBuffer("Booking List", -1);
         }
     }
 

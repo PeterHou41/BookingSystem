@@ -51,7 +51,6 @@ public class Building implements Serializable {
     }
 
 
-
     /**
      * Add a room to this building.
      * @param room Room added.
@@ -69,6 +68,14 @@ public class Building implements Serializable {
     }
 
     /**
+     * Public method to print essential information about this building.
+     * @return Info of the building in String.
+     */
+    public String getInfo() {
+        return "\nName: " + name + "\nAddress: " + address + "\n";
+    }
+
+    /**
      * Public getter to return all rooms in this building.
      * @return All rooms in this building.
      */
@@ -76,12 +83,12 @@ public class Building implements Serializable {
         return rooms;
     }
 
-    /**
-     * Dereference the lower level dependent entities from this building.
-     */
-    public void removeSelf() {
-        rooms.forEach(room -> removeSelf());
-    }
+//    /**
+//     * Dereference the lower level dependent entities from this building.
+//     */
+//    public void removeSelf() {
+//        rooms.forEach(room -> removeSelf());
+//    }
 
 
 }

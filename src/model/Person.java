@@ -76,10 +76,21 @@ public class Person implements Serializable {
     }
 
     /**
+     * Public method to print essential information about this person.
+     * @return Info of the person in String.
+     */
+    public String getInfo() {
+        return "\nName: " + name + "\nEmail: <" + email + ">\n";
+    }
+
+    /**
      * Dereference all bookings made by this person.
      */
     public void removeSelf() {
-        allBookings.forEach(booking -> removeSelf());
+        email = null;
+        name = null;
+//        allBookings = null;
+
     }
 
 

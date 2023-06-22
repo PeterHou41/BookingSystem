@@ -8,6 +8,7 @@ import src.model.Room;
 
 import java.io.*;
 
+import java.text.ParseException;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
@@ -220,6 +221,9 @@ public class Terminal {
         catch (IOException e) {
             pw.println("Oops...");
         }
+        catch (NullPointerException npe) {
+            pw.println("It happens?");
+        }
         catch (NumberFormatException nfe) {
             pw.println("Not a valid integer option!");
             pw.println("Back to previous level...");
@@ -236,16 +240,16 @@ public class Terminal {
             int exceptedOption = Integer.parseInt(keyboard);
             switch (exceptedOption) {
                 case 1:
-                    printCurrentPeople(bookingSystem.getPeople());
+                    printCurrentPeople();
                     break;
                 case 2:
-                    printCurrentBuildings(bookingSystem.getBuildings());
+                    printCurrentBuildings();
                     break;
                 case 3:
-                    printCurrentRooms(bookingSystem.getRooms());
+                    printCurrentRooms();
                     break;
                 case 4:
-                    printCurrentBookings(bookingSystem.getBookings());
+                    printCurrentBookings();
                     break;
                 case 5:
                     pw.println("Back to previous level...");
@@ -370,7 +374,7 @@ public class Terminal {
         try {
             // Choose building.
             pw.println("Which building you would like this room located in?");
-            printCurrentBuildings(bookingSystem.getBuildings());
+            printCurrentBuildings();
             pw.println("Enter your option, '0' to step back: ");
             int chosenBuilding = Integer.parseInt(br.readLine());
             if (chosenBuilding == 0) {
@@ -388,7 +392,7 @@ public class Terminal {
             bookingSystem.addRoom(inputName, chosenBuilding);
 
 
-            pw.printf("Registration for <%s> with the building chosen is successful!\n",
+            pw.printf("Registration for <%s> with the building chosen is successful!%n",
                     inputName);
 
         }
@@ -407,7 +411,7 @@ public class Terminal {
         try {
             // Get Person and Room
             pw.println("Which person is requesting a booking?");
-            printCurrentPeople(bookingSystem.getPeople());
+            printCurrentPeople();
             pw.println("Enter your option, '0' to interrupt the action: ");
             int chosenPerson = Integer.parseInt(br.readLine());
             if (chosenPerson == 0) {
@@ -416,7 +420,7 @@ public class Terminal {
             }
 
             pw.println("Which room would be booked?");
-            printCurrentRooms(bookingSystem.getRooms());
+            printCurrentRooms();
             pw.println("Enter your option, '0' to interrupt the action: ");
             int chosenRoom = Integer.parseInt(br.readLine());
             if (chosenRoom == 0) {
@@ -424,28 +428,44 @@ public class Terminal {
                 return;
             }
 
+            //From here to line 461, could be placed into BookingSystem, ideally.
 
             // Date and Time legality check.
             pw.println("The entered date and time must be no earlier than now(when sending the request).");
             pw.println("Please enter the date for the booking.");
-            LocalDate underlyingDate = dateFormatCheck();
+
+            LocalDate underlyingDate = getDateEntry(false);
+
+            // Used to handle the case of earlier date.
             if (underlyingDate == null) {
+                pw.println("Entered date is earlier than today!");
                 return;
             }
-            boolean isToday = underlyingDate.equals(LocalDate.now());
+
             pw.println("Please enter the start and the end time for the booking.");
-            LocalTime[] underlyingStartAndEnd = bookingTimeFormatCheck(isToday);
+
+            LocalTime[] underlyingStartAndEnd = bookingTimeFormatCheck(underlyingDate);
+
+            /* Handle the case for booking span (in minutes):
+                1. Less than five.
+                2. Not the integral of five.
+             */
             if (underlyingStartAndEnd == null) {
                 return;
             }
+
             List<Room> rooms = bookingSystem.getRooms();
             Room underlyingRoom = rooms.get(chosenRoom - 1);
 
 
             //Booking conflict check.
-            if (bookingConflictCheck(underlyingRoom, underlyingDate, underlyingStartAndEnd)) {
+            pw.println("Check whether the booking conflicted with another existed booking...");
+            if (bookingSystem.bookingConflictCheck(underlyingRoom, underlyingDate, underlyingStartAndEnd)) {
+                pw.println("Time span entered or space chosen conflicted with existed booking!");
                 return;
             }
+            pw.println("No conflicts in time and space with existed bookings!");
+
 
             bookingSystem.addBooking(underlyingDate, underlyingStartAndEnd, chosenPerson, chosenRoom);
             pw.println("Booking registered successfully!");
@@ -465,7 +485,7 @@ public class Terminal {
     private void removePerson() {
         try {
             pw.println("Which person would you like to remove from the system?");
-            printCurrentPeople(bookingSystem.getPeople());
+            printCurrentPeople();
             pw.println("\n### WARNING ###\nOnce confirmed, all bookings made by" +
                     "\nthis person would be removed,");
             pw.println("Enter your option, '0' to interrupt the action: ");
@@ -498,7 +518,7 @@ public class Terminal {
     private void removeBuilding() {
         try {
             pw.println("Which building would you like to remove from the system?");
-            printCurrentBuildings(bookingSystem.getBuildings());
+            printCurrentBuildings();
             pw.println("\n### WARNING ###\nOnce confirmed, all rooms located in this building and all " +
                     "\nsubsequent booking records and their reference for person would also be removed!");
             pw.println("Enter your option, '0' to interrupt the action: ");
@@ -526,7 +546,7 @@ public class Terminal {
     private void removeRoom() {
         try {
             pw.println("Which room would you like to remove from the system?");
-            printCurrentRooms(bookingSystem.getRooms());
+            printCurrentRooms();
             pw.println("\n### WARNING ###\nOnce confirmed, all bookings made to this room and" +
                     "\nreference for corresponding building and person would also be removed,");
             pw.println("Enter your option, '0' to interrupt the action: ");
@@ -555,7 +575,7 @@ public class Terminal {
     private void removeBooking() {
         try {
             pw.println("Which booking would you like to remove from the system?");
-            printCurrentBookings(bookingSystem.getBookings());
+            printCurrentBookings();
             pw.println("\n### WARNING ###\nOnce confirmed, the person who made the booking and\n" +
                     "the room this booking reserved would lose this reference,\n" +
                     "and the records of this booking would be deleted from the system.");
@@ -582,61 +602,110 @@ public class Terminal {
     }
 
 
+    // Start of the Date-related methods
 
-    private LocalDate dateFormatCheck() throws IOException {
-        LocalDate today = LocalDate.now();
-        pw.printf("\nEnter a date in this format: %s\n", datePattern);
-        String iDate = br.readLine();
+
+    // Check whether the entered date is earlier than today for new booking case
+    private LocalDate dateCheck(String iDate, boolean calledByView) {
+
         LocalDate inputDate = LocalDate.parse(iDate);
-        if (inputDate.isBefore(today)) {
-            pw.println("Entered date is earlier than today!");
+        // Used to handle the case of earlier date entry for addBooking.
+        if (bookingSystem.earlyDateCheck(inputDate, calledByView)) {
             return null;
         }
-        pw.println("Entered date validated!");
         return inputDate;
     }
 
-    private LocalTime[] getTimeBlock(boolean today) throws IOException{
-        pw.printf("Enter the start time in this format: %s\n", timePattern);
-        LocalTime rn = LocalTime.now();
-        String iSTime = br.readLine();
-        LocalTime inputStartTime = LocalTime.parse(iSTime);
+    private LocalDate getDateEntry(boolean calledByView) {
+        String iDate = null;
+        LocalDate underlyingDate = null;
 
-        if (today && inputStartTime.isBefore(rn)) {
-            pw.println("Entered time is earlier than now!");
-            return null;
+        try{
+            pw.printf("\nEnter a date in this format: %s\n", datePattern);
+            iDate = br.readLine();
+        }
+        catch (IOException ioe) {
+            pw.println("Unexpected IOException thrown DE1!");
         }
 
-        pw.println("And enter the end time in the same format:");
-        String iETime = br.readLine();
-        LocalTime inputEndTime = LocalTime.parse(iETime);
-
-
-        // Legality not checked.
-        LocalTime[] validStartEnd = {inputStartTime, inputEndTime};
-        return validStartEnd;
+        // Handle the case of empty entry.
+        try{
+            underlyingDate = dateCheck(iDate, calledByView);
+            pw.println("Entered date validated!");
+        }
+        catch (DateTimeParseException dtpException) {
+            pw.println("Input Date or Time parsing failed!");
+        }
+        return underlyingDate;
     }
 
-    private LocalTime[] bookingTimeFormatCheck(boolean today) throws IOException{
-        LocalTime[] originalSE = getTimeBlock(today);
-        LocalTime inputStartTime = originalSE[0];
-        LocalTime inputEndTime = originalSE[1];
+    // End of the Date-related methods
 
+
+
+    private LocalTime[] getTimeBlock(LocalDate dateEntry, boolean calledByView) {
+        LocalTime[] validStartAndEnd = null;
+        try {
+            pw.printf("Enter the start time in this format: %s\n", timePattern);
+            String iSTime = br.readLine();
+            LocalTime inputStartTime = LocalTime.parse(iSTime);
+            boolean today = bookingSystem.earlyDateCheck(dateEntry, calledByView);
+            boolean earlyTime = bookingSystem.earlyTimeCheck(inputStartTime, calledByView);
+
+            // Check whether the time block called by the addBooking methods
+            // is later than the point when the request is made.
+            if (today && earlyTime && !calledByView) {
+                return null;
+            }
+
+            pw.println("And enter the end time in the same format:");
+            String iETime = br.readLine();
+            LocalTime inputEndTime = LocalTime.parse(iETime);
+
+            // Legality not checked.
+            validStartAndEnd = new LocalTime[]{inputStartTime, inputEndTime};
+        }
+        // Handle the case of empty entry.
+        catch (DateTimeParseException dtpException) {
+            pw.println("Input Date or Time parsing failed!");
+        }
+        catch (IOException ioe) {
+            pw.println("Unexpected IOException thrown!");
+        }
+
+        return validStartAndEnd;
+    }
+
+    private LocalTime[] bookingTimeFormatCheck(LocalDate underlyingDate) throws IOException{
+
+        LocalTime[] originalSE = getTimeBlock(underlyingDate, false);
+        LocalTime inputStartTime = null;
+        LocalTime inputEndTime = null;
+
+        try {
+            inputStartTime = originalSE[0];
+            inputEndTime = originalSE[1];
+        }
+        catch (NullPointerException npe) {
+            pw.println("Entered time is earlier than now!");
+        }
+
+        if (originalSE == null) {
+            return null;
+        }
 
         int differenceInHour = inputEndTime.getHour() - inputStartTime.getHour();
         int differenceInMin = inputEndTime.getMinute() - inputStartTime.getMinute();
 
-        if (differenceInHour != 0) {
-            differenceInMin += differenceInHour * 60;
-        }
+        differenceInMin = bookingSystem.complementMin(differenceInHour, differenceInMin);
 
-        if (differenceInMin < 5) {
-            pw.println("Booking span is less than 5 min!");
+        if (bookingSystem.isAppropriateTime(differenceInMin)) {
+            pw.println("Entered time span is less than 5 min!");
             return null;
         }
 
-        if (differenceInMin % 5 != 0) {
-            pw.println("Booking span not integral of five minutes!");
+        if (bookingSystem.isMultiplesOfFive(differenceInMin)) {
+            pw.println("Entered time span not integral of five minutes!");
             return null;
         }
         // Legality checked.
@@ -644,65 +713,34 @@ public class Terminal {
         return new LocalTime[]{inputStartTime, inputEndTime};
     }
 
+    private LocalTime getTimeEntry() {
+        pw.println("Please enter the start and the end time for the booking.");
 
-
-    private boolean bookingConflictCheck(
-            Room room, LocalDate underlyingDate,LocalTime[] underlyingStartAndEnd) {
-
-        pw.println("Check whether the booking conflicted with another existed booking...");
-        List<Booking> bookings = bookingSystem.getBookings();
-        for (Booking booking : bookings) {
-            if (booking.getDate().equals(underlyingDate)) {
-                // Check if the underlying booking's endTime/startTime is:
-                LocalTime underlyingStart = underlyingStartAndEnd[0];
-                LocalTime underlyingEnd = underlyingStartAndEnd[1];
-                // Check if interleaved
-                boolean endAfterAnotherStart = underlyingEnd.isAfter(booking.getStartTime());
-                boolean startBeforeAnotherEnd = underlyingStart.isBefore(booking.getEndTime());
-
-
-
-                boolean sameRoom = room.equals(booking.getRoom());
-                if (sameRoom &&
-                        (endAfterAnotherStart && startBeforeAnotherEnd)) {
-                    pw.println("Time entered or space chosen conflicted with existed booking unfortunately!");
-                    return true;
-                }
-            }
-        }
-        pw.println("No conflicts in time and space with existed bookings!");
-        return false;
+        return null;
     }
 
 
+    // Methods for viewing parts
 
     private void allRoomsGivenTime() {
-        try{
-            LocalDate underlyingDate = dateFormatCheck();
-            if (underlyingDate == null) {
-                return;
-            }
-            boolean isToday = underlyingDate.equals(LocalDate.now());
-            LocalTime underlyingTimePoint = timePointCheck(isToday);
-            if (underlyingTimePoint == null) {
-                return;
-            }
-            timeClashCheck(underlyingDate, underlyingTimePoint, underlyingTimePoint);
-            pw.println("\nEnd of this time point retrieving.\n");
+        LocalDate underlyingDate = getDateEntry(true);
+
+        LocalTime underlyingTimePoint = searchTimePointCheck();
+        if (underlyingTimePoint == null) {
+            return;
         }
-        catch (IOException ioe) {
-            pw.println("Unknown IOException thrown!");
-        }
+        timeClashCheck(underlyingDate, underlyingTimePoint, underlyingTimePoint);
+        pw.println("\nEnd of this time point retrieving.\n");
     }
 
     private void allRoomsGivenTimeBlock() {
         try{
-            LocalDate underlyingDate = dateFormatCheck();
+            LocalDate underlyingDate = getDateEntry(true);
+
             if (underlyingDate == null) {
                 return;
             }
-            boolean isToday = underlyingDate.equals(LocalDate.now());
-            LocalTime[] underlyingBlock = timeBlockCheck(isToday);
+            LocalTime[] underlyingBlock = searchTimeBlockCheck(underlyingDate);
             if (underlyingBlock == null) {
                 return;
             }
@@ -717,22 +755,30 @@ public class Terminal {
         }
     }
 
-    private LocalTime timePointCheck(boolean today) throws IOException {
-        pw.println("The time entered is expected ");
+    private LocalTime searchTimePointCheck() {
+        pw.println("The time entered conforms to the required format.");
         pw.printf("Enter the time point in this format: %s\n", timePattern);
-        LocalTime rn = LocalTime.now();
-        String iTime = br.readLine();
-        LocalTime inputTime = LocalTime.parse(iTime);
-
-        if (today && inputTime.isBefore(rn)) {
-            pw.println("Entered time is earlier than now!");
-            return null;
+        LocalTime inputTime = null;
+        // Handle the case of empty entry and unexpected IOE.
+        try {
+            String iTime = br.readLine();
+            inputTime = LocalTime.parse(iTime);
+        }
+        catch (DateTimeParseException dtpException) {
+            pw.println("Input Date or Time parsing failed!");
+        }
+        catch (IOException ioe) {
+            pw.println("Unexpected IOException thrown!");
         }
         return inputTime;
     }
 
-    private LocalTime[] timeBlockCheck(boolean today) throws IOException {
-        LocalTime[] originalSE = getTimeBlock(today);
+    private LocalTime[] searchTimeBlockCheck(LocalDate entryDate) throws IOException {
+        LocalTime[] originalSE = getTimeBlock(entryDate, true);
+
+        if (originalSE == null) {
+            return null;
+        }
         LocalTime inputStartTime = originalSE[0];
         LocalTime inputEndTime = originalSE[1];
 
@@ -751,45 +797,76 @@ public class Terminal {
         return new LocalTime[]{inputStartTime, inputEndTime};
     }
 
+    // Room for optimising.
     private void timeClashCheck(LocalDate underlyingDate, LocalTime requestedStart, LocalTime requestedEnd) {
         String buildingName;
         String roomName;
         List<Room> rooms = bookingSystem.getRooms();
         List<Booking> bookings = bookingSystem.getBookings();
         Room room;
+        LocalTime outputStart, outputEnd;
+        boolean isClashed;
 
         outer:
         for (int roomIndex = rooms.size() - 1; roomIndex >= 0; roomIndex--) {
             room = rooms.get(roomIndex);
+            isClashed = false;
+            outputStart = requestedStart;
+            outputEnd = requestedEnd;
 
             for (Booking booking: bookings) {
                 if (booking.getRoom().equals(room)) {
                     boolean sameDate = booking.getDate().equals(underlyingDate);
-                    boolean endAfterStart = requestedEnd.isAfter(booking.getStartTime());
-                    boolean startBeforeEnd  = requestedStart.isBefore(booking.getEndTime());
-                    if (sameDate && (endAfterStart || startBeforeEnd)) {
-                        continue outer;
+                    boolean reqEndAfterEqStart
+                            = (requestedEnd.isAfter(booking.getStartTime())
+                            ||requestedEnd.equals(booking.getStartTime()));
+
+                    boolean reqStartBeforeEqEnd
+                            = (requestedStart.isBefore(booking.getEndTime())
+                            || requestedStart.equals(booking.getEndTime()));
+
+                    boolean reqStartAfterEqStart
+                            = (requestedStart.isAfter(booking.getStartTime())
+                            || requestedStart.equals(booking.getStartTime()));
+
+                    boolean reqEndBeforeEqEnd
+                            = (requestedEnd.isBefore(booking.getEndTime())
+                            || requestedEnd.equals(booking.getEndTime()));
+
+                    // Given the constraint on the outer scope, only
+                    // those valid start-end pair(start before end) would be considered
+                    if (sameDate) {
+                        if (reqStartAfterEqStart && reqEndBeforeEqEnd) {
+                            isClashed = true;
+                        }
+                        else if (reqEndAfterEqStart && reqEndBeforeEqEnd) {
+                            outputEnd = booking.getStartTime();
+                        }
+                        else if (reqStartAfterEqStart && reqStartBeforeEqEnd) {
+                            outputStart = booking.getEndTime();
+                        }
                     }
                 }
             }
             buildingName = room.getBuilding().getName();
             roomName = room.getName();
-            if (requestedStart.equals(requestedEnd)) {
-                pw.printf("\nAvailable room retrieved at time <%s>: \nBuilding: %s, Room: %s\n",
-                        requestedStart, buildingName, roomName);
+            if (!isClashed) {
+                if (requestedStart.equals(requestedEnd)) {
+                    pw.printf("%nAvailable room retrieved at time <%s>: %nBuilding: %s, Room: %s%n",
+                            outputStart, buildingName, roomName);
+                }
+                else {
+                    pw.printf("%nAvailable room retrieved at period <%s>-<%s>: %nBuilding: %s, Room: %s%n",
+                            outputStart, outputEnd, buildingName, roomName);
+                }
             }
-            else {
-                pw.printf("\nAvailable room retrieved at period <%s>-<%s>: \nBuilding: %s, Room: %s\n",
-                        requestedStart, requestedEnd, buildingName, roomName);
-            }
-
         }
     }
 
     private void allBookingGivenPerson() {
         try {
             pw.println("Which person's booking details would you like to check?");
-            printCurrentPeople(bookingSystem.getPeople());
+            printCurrentPeople();
             pw.println("Enter your option, '0' to interrupt the action: ");
             int chosenPerson = Integer.parseInt(br.readLine());
             if (chosenPerson == 0) {
@@ -821,7 +898,7 @@ public class Terminal {
     private void allScheduleGivenRoom() {
         try {
             pw.println("Which room's schedule would you like to check?");
-            printCurrentRooms(bookingSystem.getRooms());
+            printCurrentRooms();
             pw.println("Enter your option, '0' to interrupt the action: ");
             int chosenRoom = Integer.parseInt(br.readLine());
             if (chosenRoom == 0) {
@@ -855,36 +932,33 @@ public class Terminal {
         }
     }
 
-    private void printCurrentPeople(List<Person> people) {
-        String name;
-        String email;
-        pw.println("\nPrinting all current person's info...\n");
+    private void printCurrentPeople() {
+
+        List<Person> people = bookingSystem.getPeople();
+        pw.println("\nPrinting all current person's info...");
         for (int counter = 0; counter < people.size(); counter++) {
-            name = people.get(counter).getName();
-            email = people.get(counter).getEmail();
-            pw.printf("%d. %s <%s>\n", counter + 1, name, email);
+            pw.printf("%n%d. %s", counter + 1, people.get(counter).getInfo());
         }
     }
-    private void printCurrentBuildings(List<Building> buildings) {
-        pw.println("\nPrinting all current building's info...\n");
+    private void printCurrentBuildings() {
+        List<Building> buildings = bookingSystem.getBuildings();
+        pw.println("\nPrinting all current building's info...");
         for (int counter = 0; counter < buildings.size(); counter++) {
-            pw.printf("%d. %s\n", counter + 1, buildings.get(counter).getName());
+            pw.printf("%n%d. %s", counter + 1, buildings.get(counter).getInfo());
         }
     }
-    private void printCurrentRooms(List<Room> rooms) {
-        String buildingName;
-        String RoomName;
-        pw.println("\nPrinting all current room's info...\n");
+    private void printCurrentRooms() {
+        List<Room> rooms = bookingSystem.getRooms();
+        pw.println("\nPrinting all current room's info...");
         for (int counter = 0; counter < rooms.size(); counter++) {
-            buildingName = rooms.get(counter).getBuilding().getName();
-            RoomName = rooms.get(counter).getName();
-            pw.printf("\n%d. Room: %s\n   Building: %s\n", counter + 1, RoomName, buildingName);
+            pw.printf("%n%d. %s", counter + 1, rooms.get(counter).getInfo());
         }
     }
-    private void printCurrentBookings(List<Booking> bookings) {
-        pw.println("\nPrinting all current booking's info...\n");
+    private void printCurrentBookings() {
+        List<Booking> bookings = bookingSystem.getBookings();
+        pw.println("\nPrinting all current booking's info...");
         for (int counter = 0; counter < bookings.size(); counter++) {
-            pw.printf("%d. %s\n", counter + 1, bookings.get(counter).getInfo());
+            pw.printf("%n%d. %s", counter + 1, bookings.get(counter).getInfo());
         }
     }
 

@@ -12,6 +12,7 @@ public class Room implements Serializable {
     private String name;
 
     private Building building;
+    private String building_located;
     private List<Booking> bookings;
     private PropertyChangeSupport notifier;
 
@@ -76,21 +77,26 @@ public class Room implements Serializable {
     }
 
     /**
-     * Dereference this room from the building and remove all bookings made.
-     */
-    public void removeSelf() {
-        building.removeRoom(this);
-        name = null;
-        building = null;
-        bookings.forEach(booking -> removeSelf());
-        bookings.clear();
-    }
-
-    /**
      * Public method to remove a specific booking made for this rooom.
      * @param booking A booking made to be removed.
      */
     public void removeBooking(Booking booking) {
         bookings.remove(booking);
+    }
+
+    /**
+     * Public method to print essential information about this room.
+     * @return Info of the room in String.
+     */
+    public String getInfo() {
+        return "\nName: " + name + "\nBuilding: " + building.getName() + "\n";
+    }
+
+    /**
+     * Public getter to return the name of the building where this room is located.
+     * @return Building's name.
+     */
+    public String getBuilding_located() {
+        return building_located;
     }
 }

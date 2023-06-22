@@ -12,6 +12,9 @@ public class Booking implements Serializable {
     private LocalDate date;
     private LocalTime startTime;
     private LocalTime endTime;
+
+    private String booker_name;
+    private String room_name;
     private Person madeBy;
     private Room bookedAt;
     private PropertyChangeSupport notifier;
@@ -105,6 +108,7 @@ public class Booking implements Serializable {
 
     /**
      * Public method to print essential information about this booking.
+     * @return Info of the booking in String.
      */
     public String getInfo() {
         return "\nPerson: " + madeBy.getName() + "\nDate: " + date.toString() +
@@ -113,11 +117,35 @@ public class Booking implements Serializable {
     }
 
     /**
-     * Public method to dereference this booking from the room and person.
+     * Public getter to return the booker's name.
+     * @return Booker's name.
      */
-    public void removeSelf() {
-        bookedAt.removeBooking(this);
-        madeBy.cancelBooking(this);
+    public String getBooker_name() {
+        return booker_name;
+    }
+
+    /**
+     * Public getter to return the reserved room's name.
+     * @return Room's name.
+     */
+    public String getRoom_name() {
+        return room_name;
+    }
+
+    /**
+     * Public setter to set the booker's name of this booking.
+     * @param booker_name Booker's name.
+     */
+    public void setBooker_name(String booker_name) {
+        this.booker_name = booker_name;
+    }
+
+    /**
+     * Public setter to set the reserved room's name of this booking.
+     * @param room_name Room's name.
+     */
+    public void setRoom_name(String room_name) {
+        this.room_name = room_name;
     }
 
 }
